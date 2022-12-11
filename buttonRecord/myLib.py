@@ -11,18 +11,32 @@ import soundfile as sf
 import numpy  # Make sure NumPy is loaded before it is used in the callback
 assert numpy  # avoid "imported but unused" message (W0611)
 
-# class testClass:
-#     def __init__(self):
-#         self.bFlag = False
+class testClass:
+    def __init__(self):
+        self.bFlag = False
     
     
-#     def loop(self):
-#         while True:
-#             if self.bFlag:
-#                 self.bFlag = False
-#                 break
-#             time.sleep(0.1)
-#             print(".")
+    def loop(self,pipe_fd=None):
+        buttonPressed = False
+        buttonReleased = False
+        while True:
+            if self.bFlag:
+                self.bFlag = False
+                break
+            time.sleep(0.1)
+            if pipe_fd:
+                message = os.read(pipe_fd, 1024)
+                print("MSG REC!: ",message)
+                buttonPressed = True
+            
+            if buttonPressed:
+                print("BUTTON HELD!!!")
+                
+            if buttonPressed and buttonReleased:
+                print("Button Released")
+                break
+        print("LOOP BROKEn")
+        
             
         
 
@@ -69,7 +83,7 @@ class audioRecorder:
             print(status, file=sys.stderr)
         q.put(indata.copy())
 
-    def beginRecording(self):
+    def beginRecording(self,pipe_fd=None):
         
         try:
             if args.samplerate is None:
@@ -89,6 +103,9 @@ class audioRecorder:
                     print('press Ctrl+C to stop the recording')
                     print('#' * 80)
                     while True:
+                        if pipe_fd:
+                            message = os.read(pipe_fd, 1024)
+                            print("MESSAGE FROM AR: ",message)
                         file.write(q.get())
         except KeyboardInterrupt:
             print('\nRecording finished: ' + repr(args.filename))
@@ -110,8 +127,7 @@ class Button:
         self.button = 0
         self.terminate = 0
     
-    def listen(self,report=False,outPip=None):
-        
+    def listen(self,outPipe=None):
         
         while True:
             if self.terminate:
@@ -122,16 +138,19 @@ class Button:
 
             if self.Button == self.bps:
                 continue
+            
             elif self.Button:
                 print("Button was pushed!")
                 
-                if report:
-                    pass
+                if outPipe:
+                    message = b"P"
+                    os.write(outPipe, message)
                 self.bps = 1
             else:
-                                
-                if report:
-                    pass
+                if outPipe:
+                    message = b"R"
+                    os.write(outPipe, message)
+                    
                 
                 print("Released")
                 self.bps = 0

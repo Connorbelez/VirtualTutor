@@ -23,11 +23,10 @@ class Button:
         self.terminate = 0
     
     
-    # def threadListend(self):
+    # def threadListendef(s):
     # # do some stuff
-    #     thread = threading.Thread(target=self.listen(), name="Downloader")
-    #     thread.start()
-        
+    # thread = threading.Thread(target=function_that_downloads, name="Downloader", args=some_args)
+    # thread.start()
     def listen(self):
         while True:
             if self.terminate:
