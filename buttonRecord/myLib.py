@@ -33,10 +33,13 @@ class testClass:
             # print("select")
             r, w, e = select.select([pipe_fd], [], [],0)
             # print("R: ",r)
+            # print('.')
             if pipe_fd in r:
                 l = str(os.read(pipe_fd,1024))
                 l = l.strip("b").strip("'")
                 print(l)
+                if l == "R":
+                    break
             else:
                 # print("No data")
                 continue
@@ -49,7 +52,7 @@ class testClass:
             #     print("message: ",message)
             
                 
-            
+            print(".")
             # if buttonPressed:
             #     print("BUTTON HELD!!!")
                 
