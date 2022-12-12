@@ -1,68 +1,20 @@
-import RPi.GPIO as GPIO # Import Raspberry Pi GPIO library
-import time
 
-import argparse
-import tempfile
-import queue
-import sys
-import os
-import sounddevice as sd
-import soundfile as sf
-import numpy  # Make sure NumPy is loaded before it is used in the callback
-assert numpy  # avoid "imported but unused" message (W0611)
-import select 
-class testClass:
-    def __init__(self):
-        self.bFlag = False
-        # self.pipe_fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
-    
-    
-    def loop(self,pipe_name=None):
-        print("IN LOOOP")
-        pipe_fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
-        print("opened")
-        buttonPressed = False
-        buttonReleased = False
-        print("Entering while ")
-        while True:
 
-            if self.bFlag:
-                self.bFlag = False
-                break
-            # time.sleep(0.1)
-            # print("select")
-            r, w, e = select.select([pipe_fd], [], [],0)
-            # print("R: ",r)
-            # print('.')
-            if pipe_fd in r:
-                l = str(os.read(pipe_fd,1024))
-                l = l.strip("b").strip("'")
-                print(l)
-                if l == "R":
-                    break
-            else:
-                # print("No data")
-                continue
-            
-            # print(".")
-            # time.sleep(0.5)
-            # if pipe_fd:
-                
-            #     message = os.read(pipe_fd, 1024)
-            #     print("message: ",message)
-            
-                
-            print(".")
-            # if buttonPressed:
-            #     print("BUTTON HELD!!!")
-                
-            # if buttonPressed and buttonReleased:
-            #     print("Button Released")
-            #     break
-        print("LOOP BROKEn")
-        
-            
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -147,50 +99,4 @@ class audioRecorder:
         except Exception as e:
             parser.exit(type(e).__name__ + ': ' + str(e))
             
-    
-# GPIO.setwarnings(False) # Ignore warning for now
-# GPIO.setmode(GPIO.BOARD) # Use physical pin numbering
-# GPIO.setup(10, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) # Set pin 10 to be an input pin and set initial value to be pulled low (off)
-
-class Button:
-    def __init__(self):
-        GPIO.setwarnings(False) # Ignore warning for now
-        GPIO.setmode(GPIO.BOARD) # Use physical pin numbering
-        GPIO.setup(10, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) # Set pin 10 to be an input pin and set initial value to be pulled low (off)
-        self.bps = 0
-        self.button = 0
-        self.terminate = 0
-        
-    
-    def listen(self,pipe_fd=None):
-        print("LISTENING at :", pipe_fd)
-        outPipe = os.open(pipe_fd, os.O_WRONLY)
-        while True:
-            if self.terminate:
-                self.terminate = 0
-                break
-            time.sleep(0.1)
-            self.Button = GPIO.input(10)
-
-            if self.Button == self.bps:
-                continue
-            
-            elif self.Button:
-                print("Button was pushed!")
-                
-                if outPipe:
-                    message = b"P"
-                    os.write(outPipe, message)
-                self.bps = 1
-            else:
-                if outPipe:
-                    message = b"R"
-                    os.write(outPipe, message)
-                    
-                
-                print("Released")
-                self.bps = 0
-
-            
-        GPIO.cleanup()
     

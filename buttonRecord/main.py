@@ -15,10 +15,13 @@ else:
     os.remove(pipe_name)
     os.mkfifo(pipe_name, 0o666)
 b = Button()
+r = testClass()
+t1 = threading.Thread(target=b.listen, args=(pipe_name,))
+t2 = threading.Thread(target=r.loop, args=(pipe_name,))
 
-# t1 = threading.Thread(target=b.listen(pipe_name))
-
-b.listen(pipe_name)
+t2.start()
+t1.start()
+# b.listen(pipe_name)
 print("entering whileLoop")
 # while True:
 #     message = os.read(pipe_fd, 1024)
