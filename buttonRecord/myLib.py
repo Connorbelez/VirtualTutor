@@ -10,31 +10,52 @@ import sounddevice as sd
 import soundfile as sf
 import numpy  # Make sure NumPy is loaded before it is used in the callback
 assert numpy  # avoid "imported but unused" message (W0611)
-
+import select 
 class testClass:
     def __init__(self):
         self.bFlag = False
+        # self.pipe_fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
     
     
-    def loop(self,pipe_fd=None):
+    def loop(self,pipe_name=None):
+        print("IN LOOOP")
+        pipe_fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
+        print("opened")
         buttonPressed = False
         buttonReleased = False
+        print("Entering while ")
         while True:
+
             if self.bFlag:
                 self.bFlag = False
                 break
-            time.sleep(0.1)
-            if pipe_fd:
-                message = os.read(pipe_fd, 1024)
-                print("MSG REC!: ",message)
-                buttonPressed = True
+            # time.sleep(0.1)
+            # print("select")
+            r, w, e = select.select([pipe_fd], [], [],0)
+            # print("R: ",r)
+            if pipe_fd in r:
+                l = str(os.read(pipe_fd,1024))
+                l = l.strip("b").strip("'")
+                print(l)
+            else:
+                # print("No data")
+                continue
             
-            if buttonPressed:
-                print("BUTTON HELD!!!")
+            # print(".")
+            # time.sleep(0.5)
+            # if pipe_fd:
                 
-            if buttonPressed and buttonReleased:
-                print("Button Released")
-                break
+            #     message = os.read(pipe_fd, 1024)
+            #     print("message: ",message)
+            
+                
+            
+            # if buttonPressed:
+            #     print("BUTTON HELD!!!")
+                
+            # if buttonPressed and buttonReleased:
+            #     print("Button Released")
+            #     break
         print("LOOP BROKEn")
         
             
@@ -126,9 +147,11 @@ class Button:
         self.bps = 0
         self.button = 0
         self.terminate = 0
-    
-    def listen(self,outPipe=None):
         
+    
+    def listen(self,pipe_fd=None):
+        print("LISTENING at :", pipe_fd)
+        outPipe = os.open(pipe_fd, os.O_WRONLY)
         while True:
             if self.terminate:
                 self.terminate = 0
