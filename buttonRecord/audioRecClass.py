@@ -34,7 +34,7 @@ class audioRecorder:
             print(status, file=sys.stderr)
         self.q.put(indata.copy())
 
-    def initialize(self,pipe_name=None):
+    def initialize(self,pipe_name=None,pubTopic=None):
         parser = argparse.ArgumentParser(add_help=False)
         parser.add_argument(
             '-l', '--list-devices', action='store_true',
@@ -67,7 +67,7 @@ class audioRecorder:
 
         
         pipe_fd = os.open(pipe_name, os.O_RDONLY)
-        
+    
         
         while True:
     
@@ -112,6 +112,13 @@ class audioRecorder:
                                 # message = os.read(pipe_fd, 1024)
                                 # print("MESSAGE FROM AR: ",message)
                             file.write(self.q.get())
+                        if pubTopic:
+                            print("opening Publish Pipe")
+                            pub_topic_fd = os.open(pubTopic, os.O_WRONLY | os.O_NONBLOCK) #if theres an error here its because there's no listener attached to it yet. 
+                            print("Opened Pub Pipe")
+                            message = bytes(str(args.filename),encoding='utf-8')
+                            os.write(pub_topic_fd, message)
+                            print("PUBLISHED FILE NAME: ",message)
         # except KeyboardInterrupt:
         #     print('\nRecording finished: ' + repr(args.filename))
         #     parser.exit(0)
