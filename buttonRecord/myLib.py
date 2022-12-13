@@ -16,7 +16,6 @@ class testClass:
         self.bFlag = False
         # self.pipe_fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
     
-    
     def loop(self,pipe_name=None):
         print("IN LOOOP")
         pipe_fd = os.open(pipe_name, os.O_RDONLY | os.O_NONBLOCK)
@@ -32,8 +31,6 @@ class testClass:
             # time.sleep(0.1)
             # print("select")
             r, w, e = select.select([pipe_fd], [], [],0)
-            # print("R: ",r)
-            # print('.')
             if pipe_fd in r:
                 l = str(os.read(pipe_fd,1024))
                 l = l.strip("b").strip("'")
@@ -43,27 +40,13 @@ class testClass:
             else:
                 # print("No data")
                 continue
-            
-            # print(".")
-            # time.sleep(0.5)
-            # if pipe_fd:
-                
-            #     message = os.read(pipe_fd, 1024)
-            #     print("message: ",message)
-            
-                
+
             print(".")
-            # if buttonPressed:
-            #     print("BUTTON HELD!!!")
-                
-            # if buttonPressed and buttonReleased:
-            #     print("Button Released")
-            #     break
+
         print("LOOP BROKEn")
         
             
         
-
 class audioRecorder:
     def __init__(self):
         

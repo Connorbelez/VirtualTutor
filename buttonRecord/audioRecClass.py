@@ -13,6 +13,54 @@ assert numpy  # avoid "imported but unused" message (W0611)
 import select 
 
 
+
+from deepspeech import Model 
+import wave
+
+
+
+
+def tts(stream):
+    model = Model('deepspeech-0.9.3-models.tflite')
+    model.enableExternalScorer('deepspeech-0.9.3-models.scorer')
+    lm_alpha = 0.75
+    lm_beta = 1.85
+    model.setScorerAlphaBeta(lm_alpha, lm_beta)
+
+    beam_width = 300
+    model.setBeamWidth(beam_width)
+
+    # filename = 't2.wav'
+    # w = wave.open(filename, 'r')
+    # # rate = w.getframerate()
+    # frames = w.getnframes()
+    # buffer = w.readframes(frames)
+    # print(rate)
+    import time
+
+    start = time.time()
+
+    print(23*2.3)
+
+
+    # data16 = np.frombuffer(buffer, dtype=np.int16)
+
+    # pipe_name = "./audioPipe"
+    # pipe_fd = os.open(pipe_name, os.O_RDONLY)
+
+    # audio_data = os.read(pipe_fd, 1024)
+    # print("Received message:", audio_data)
+
+
+    # audio_array = np.frombuffer(audio_data, dtype=np.int16)
+    print("Getting text...")
+    text = model.stt(stream)
+    print(text)
+    end = time.time()
+    print(end - start)
+    
+    
+    
 class audioRecorder:
     def __init__(self):
         
@@ -74,7 +122,8 @@ class audioRecorder:
             if args.samplerate is None:
                 device_info = sd.query_devices(args.device, 'input')
                 # soundfile expects an int, sounddevice provides a float:
-                args.samplerate = int(device_info['default_samplerate'])
+                # args.samplerate = int(device_info['default_samplerate'])
+                args.samplerate = 16000
             # if args.filename is None:
             #     args.filename = tempfile.mktemp(prefix='delme_rec_unlimited_',
             #                                     suffix='.wav', dir='')
@@ -86,9 +135,11 @@ class audioRecorder:
             self.q.queue.clear()
             if "P" in code:
                 print("Starting Recording...")
-                args.filename = tempfile.mktemp(prefix='delme_rec_unlimited_',
-                                                    suffix='.wav', dir='')
-            
+                # args.filename = tempfile.mktemp(prefix='delme_rec_unlimited_',
+                #                                     suffix='.wav', dir='')
+                if os.path.exists("t2.wav"):
+                    os.remove("t2.wav")
+                args.filename = "t2.wav"
                 with sf.SoundFile(args.filename, mode='x', samplerate=args.samplerate,
                                 channels=args.channels, subtype=args.subtype) as file:
                     with sd.InputStream(samplerate=args.samplerate, device=args.device,
@@ -96,6 +147,7 @@ class audioRecorder:
                         print('#' * 80)
                         print('press Ctrl+C to stop the recording')
                         print('#' * 80)
+                        audioBuffer = []
                         while True:
                             if pipe_fd:
                                 r, w, e = select.select([pipe_fd], [], [],0)
@@ -111,14 +163,32 @@ class audioRecorder:
                                         break
                                 # message = os.read(pipe_fd, 1024)
                                 # print("MESSAGE FROM AR: ",message)
-                            file.write(self.q.get())
+                            tw = self.q.get()
+                            print("tw Len: ",len(audioBuffer))
+                            # file.write(self.q.get())
+                            audioBuffer.append(tw)
+                            file.write(tw)
+                            print("Writing: ",tw)
+
+                
                         if pubTopic:
                             print("opening Publish Pipe")
+                            print(type(audioBuffer))
                             pub_topic_fd = os.open(pubTopic, os.O_WRONLY | os.O_NONBLOCK) #if theres an error here its because there's no listener attached to it yet. 
+                            # pub_topic_fd = open(pubTopic,"wb")
                             print("Opened Pub Pipe")
-                            message = bytes(str(args.filename),encoding='utf-8')
-                            os.write(pub_topic_fd, message)
-                            print("PUBLISHED FILE NAME: ",message)
+                            # message = bytes(str(audioBuffer),encoding='utf-8')
+                            
+                            ab = b''.join(audioBuffer)
+                        
+                            print("MEssge: ",ab)
+                            # message = audioBuffer
+                            # os.write(pub_topic_fd, message)
+                            os.write(pub_topic_fd, ab)
+                            print(len(ab))
+                            tts(audioBuffer)
+                            # pub_topic_fd.write()
+                            # print("PUBLISHED FILE NAME: ",message)
         # except KeyboardInterrupt:
         #     print('\nRecording finished: ' + repr(args.filename))
         #     parser.exit(0)

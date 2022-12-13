@@ -1,0 +1,4 @@
+*.tflite
+*.pbmm
+*.wav
+*.scorer
