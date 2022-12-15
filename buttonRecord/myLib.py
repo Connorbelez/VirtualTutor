@@ -11,6 +11,15 @@ import soundfile as sf
 import numpy  # Make sure NumPy is loaded before it is used in the callback
 assert numpy  # avoid "imported but unused" message (W0611)
 import select 
+import pyaudio
+import requests
+
+
+
+from deepspeech import Model 
+import wave
+
+
 class testClass:
     def __init__(self):
         self.bFlag = False
@@ -45,120 +54,7 @@ class testClass:
 
         print("LOOP BROKEn")
         
-            
-        
-class audioRecorder:
-    def __init__(self):
-        
-        self.breakFlag = False
-        self.q = queue.Queue()
-        
-
-        
-    def int_or_str(self,text):
-        try:
-            return int(text)
-        except ValueError:
-            return text
-        
-    
-    def callback(self,indata,frames,time,status):
-        """This is called (from a separate thread) for each audio block."""
-        if status:
-            print(status, file=sys.stderr)
-        self.q.put(indata.copy())
-
-    def initialize(self,pipe_name=None,pubTopic=None):
-        parser = argparse.ArgumentParser(add_help=False)
-        parser.add_argument(
-            '-l', '--list-devices', action='store_true',
-            help='show list of audio devices and exit')
-        
-        args, remaining = parser.parse_known_args()
-        # q = queue.Queue()
-
-        if args.list_devices:
-            print(sd.query_devices())
-            parser.exit(0)
-        parser = argparse.ArgumentParser(
-            description=__doc__,
-            formatter_class=argparse.RawDescriptionHelpFormatter,
-            parents=[parser])
-        parser.add_argument(
-            'filename', nargs='?', metavar='FILENAME',
-            help='audio file to store recording to')
-        parser.add_argument(
-            '-d', '--device', type=self.int_or_str,
-            help='input device (numeric ID or substring)')
-        parser.add_argument(
-            '-r', '--samplerate', type=int, help='sampling rate')
-        parser.add_argument(
-            '-c', '--channels', type=int, default=1, help='number of input channels')
-        parser.add_argument(
-            '-t', '--subtype', type=str, help='sound file subtype (e.g. "PCM_24")')
-        args = parser.parse_args(remaining)
-        
-
-        
-        pipe_fd = os.open(pipe_name, os.O_RDONLY)
-    
-        
-        while True:
-    
-            if args.samplerate is None:
-                device_info = sd.query_devices(args.device, 'input')
-                # soundfile expects an int, sounddevice provides a float:
-                args.samplerate = int(device_info['default_samplerate'])
-            # if args.filename is None:
-            #     args.filename = tempfile.mktemp(prefix='delme_rec_unlimited_',
-            #                                     suffix='.wav', dir='')
-
-            # Make sure the file is opened before recording anything:
-            code = str(os.read(pipe_fd,1024))
-            print(code)
-            code = code.strip("b").strip("'")
-            self.q.queue.clear()
-            if "P" in code:
-                print("Starting Recording...")
-                args.filename = tempfile.mktemp(prefix='delme_rec_unlimited_',
-                                                    suffix='.wav', dir='')
-            
-                with sf.SoundFile(args.filename, mode='x', samplerate=args.samplerate,
-                                channels=args.channels, subtype=args.subtype) as file:
-                    with sd.InputStream(samplerate=args.samplerate, device=args.device,
-                                        channels=args.channels, callback=self.callback):
-                        print('#' * 80)
-                        print('press Ctrl+C to stop the recording')
-                        print('#' * 80)
-                        while True:
-                            if pipe_fd:
-                                r, w, e = select.select([pipe_fd], [], [],0)
-                                if pipe_fd in r:
-                                    l = str(os.read(pipe_fd,1024))
-                                    l = l.strip("b").strip("'")
-                                    print(l)
-                                    if l == "R":
-                                        print("Recording Finished: ",repr(args.filename))
-                                        
-                                        
-                                        #publish name of file and instructions.
-                                        break
-                                # message = os.read(pipe_fd, 1024)
-                                # print("MESSAGE FROM AR: ",message)
-                            file.write(self.q.get())
-                        if pubTopic:
-                            print("opening Publish Pipe")
-                            pub_topic_fd = os.open(pubTopic, os.O_WRONLY | os.O_NONBLOCK) #if theres an error here its because there's no listener attached to it yet. 
-                            print("Opened Pub Pipe")
-                            message = bytes(str(args.filename),encoding='utf-8')
-                            os.write(pub_topic_fd, message)
-                            print("PUBLISHED FILE NAME: ",message)
-        # except KeyboardInterrupt:
-        #     print('\nRecording finished: ' + repr(args.filename))
-        #     parser.exit(0)
-        # except Exception as e:
-        #     parser.exit(type(e).__name__ + ': ' + str(e))
-            
+ 
     
 class Button:
     def __init__(self):
@@ -201,4 +97,199 @@ class Button:
 
             
         GPIO.cleanup()
+
+
+
+
+
+def tts(stream):
+    model = Model('deepspeech-0.9.3-models.tflite')
+    model.enableExternalScorer('deepspeech-0.9.3-models.scorer')
+    lm_alpha = 0.75
+    lm_beta = 1.85
+    model.setScorerAlphaBeta(lm_alpha, lm_beta)
+
+    beam_width = 300
+    model.setBeamWidth(beam_width)
+
+    import time
+
+    start = time.time()
+
+    print(23*2.3)
+    print("Getting text...")
+    text = model.stt(stream)
+    print(text)
+    end = time.time()
+    print(end - start)
     
+    
+class audioRecorder:
+    CHUNK = 1024
+    FORMAT = pyaudio.paInt16
+    RATE = 16000
+    
+    def __init__(self, pipeName='/button',model='deepspeech-0.9.3-models.tflite',scorer='deepspeech-0.9.3-models.scorer',channels=1,a=0.75,b=1.85,beam=300 ):
+        self.p = pyaudio.PyAudio()
+        self.model = Model(model)
+        self.model.enableExternalScorer(scorer)
+        self.model.setScorerAlphaBeta(a,b)
+        self.model.setBeamWidth(beam)
+        self.pipeName = pipeName
+        self.frames = []
+        self.CHANNELS = channels
+        
+    def sst(self,pipe_name,pubPipe):
+
+
+        pipe_fd = os.open(pipe_name, os.O_RDONLY)
+
+        pubTopic = os.open(pubPipe, os.O_WRONLY)
+        
+        while True:
+            print("Listening for button push")
+            code = str(os.read(pipe_fd,1024))
+
+            if "P" in code:
+                print("Button pushed setting up stream")          
+                stream = self.p.open(format=self.FORMAT,
+                    channels=self.CHANNELS,
+                    rate=self.RATE,
+                    input=True,
+                    frames_per_buffer=self.CHUNK)
+                    
+                stream_context = self.model.createStream()
+                
+                print("CODE: ",code)
+                while True:
+                    
+
+                    data = stream.read(self.CHUNK)
+                    stream_context.feedAudioContent(numpy.frombuffer(data,numpy.int16))
+                    
+                    if pipe_fd:
+                        r, w, e = select.select([pipe_fd], [], [],0)
+                        if pipe_fd in r:
+                            l = str(os.read(pipe_fd,1024))
+                            l = l.strip("b").strip("'")
+                            print("118 l: ",l)
+                            if l == "R":
+                                print("Recording Finished: ")
+                                
+                                text = stream_context.finishStream()
+                                print(text)
+                                
+                                #now to publish
+                                os.write(pubTopic,bytes(text,encoding='utf-8'))
+                                #publish name of file and instructions.
+                                break
+
+            else:
+                print("Waiting on button")
+from gtts import gTTS
+import openai
+class OpenAiClient:
+    def __init__(self):
+        self.url = "https://api.openai.com/v1/models/davinci-3"
+        self.api_key = os.environ.get("OPENAIKEY")
+        self.conversation_id = "a;lsdkfj123";
+        self.max_tokens = 500
+        self.temperature = 0.5
+        self.response_type = 'text'
+        self.context = []
+        self.gradeLevel = "University"
+        self.headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+            }
+
+        
+    def req(self,text):
+        text = str(text)
+        print("NEW PROMPT: ",text)
+        openai.api_key = os.getenv("OPENAIKEY")
+        
+        self.context.append("Student: " + text + "\n" + "Teacher: ")
+        
+        prompt = " ".join(self.context)
+        c = openai.Completion.create(
+            model="text-davinci-003",
+            prompt=prompt,
+            max_tokens=200,
+            temperature=0
+        )
+        response = c["choices"][0]["text"].strip()
+        if len(self.context) <1:
+            
+            self.context.append("Teacher: " + response + "\n")
+        else:
+            self.context.append("Teacher: " + response + "\n")
+        print("RESPONSE FROM OPEN AI: ",response)
+        print(self.context)
+
+        myobj = gTTS(text=response, lang='en', slow=False)
+        
+        # Saving the converted audio in a mp3 file named
+        # welcome 
+        myobj.save("welcome.mp3")
+        
+        # Playing the converted file
+        os.system("mpg321 welcome.mp3")
+        # # self.data["prompt"] = text
+        # print("Making request with text: ",text)
+        # response = requests.post("https://api.openai.com/v1/completions", headers=self.headers, json=c)
+        # print(response.text)
+        
+    def listen(self,pipe):
+        pipe_fd = os.open(pipe, os.O_RDONLY)
+        self.context.append("You are a teacher, answering the questions of a " + self.gradeLevel + " level student\n")
+        while True:
+
+            audio_data = os.read(pipe_fd, 1024)
+            print("Received message:", audio_data)
+            text = str(audio_data)
+            print(text)
+            self.req(text)
+
+
+# Set the URL for the Davinci-3 model
+# url = "https://api.openai.com/v1/models/davinci-3"
+
+# # Set the API key
+# api_key = "<your-api-key>"
+
+# # Set the conversation ID
+# conversation_id = "<your-conversation-id>"
+
+# # Set the prompt text that you want to generate a response for
+# prompt = "What is the weather like today?"
+
+# # Set the maximum number of characters that the response can contain
+# max_tokens = 100
+
+# # Set the temperature parameter (controls the creativity of the response)
+# temperature = 0.5
+
+# # Set the response type to "text"
+# response_type = "text"
+
+# # Set the request headers
+# headers = {
+#   "Content-Type": "application/json",
+#   "Authorization": f"Bearer {api_key}"
+# }
+
+# # Set the request body
+# data = {
+#   "prompt": prompt,
+#   "max_tokens": max_tokens,
+#   "temperature": temperature,
+#   "response_format": response_type,
+#   "conversation_id": conversation_id
+# }
+
+# Make the request to the Davinci-3 model
+# response = requests.post(url, headers=headers, json=data)
+
+# # Print the response
+# print(response.text)
